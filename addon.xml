@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.gnt"
-       name="GNT"
-       version="0.1"
-       provider-name="Vitor Hirota">
-  <requires>
-    <import addon="xbmc.python" version="1.0"/>
-    <import addon="xbmc.gui"/>
-    <import addon="xbmc.plugin"/>
-  </requires>
-  <extension point="xbmc.python.pluginsource" library="default.py">
-        <provides>video</provides>
-  </extension>
-  <extension point="xbmc.addon.metadata">
-    <summary>GNT Videos on XBMC</summary>
-    <summary language="pt">GNT Vídeos no XBMC</summary>
-    <description language="pt">GNT Vídeos no XBMC</description>
-    <platform>all</platform>
-  </extension>
+<addon id="plugin.video.globotv"
+		name="Globo.tv"
+		version="0.1"
+		provider-name="Vitor Hirota">
+	<requires>
+		<import addon="xbmc.python" version="1.0"/>
+		<import addon="script.common.plugin.cache"/>
+		<import addon="xbmc.gui"/>
+		<import addon="xbmc.plugin"/>
+	</requires>
+	<extension point="xbmc.python.pluginsource" library="default.py">
+		<provides>video</provides>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<summary>Globo.tv Videos on XBMC</summary>
+		<summary language="pt">Globo.tv no XBMC</summary>
+		<description language="pt">Globo.tv no XBMC</description>
+		<platform>all</platform>
+	</extension>
 </addon>

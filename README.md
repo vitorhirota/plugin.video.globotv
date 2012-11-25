@@ -1,6 +1,9 @@
-GNT XBMC Plugin
-===============
+# Globo.tv XBMC Plugin
 
-Veja os vídeos disponibilizados gratuitamente pelo canal GNT online.
+Veja os vídeos disponibilizados gratuitamente pelo site http://globotv.globo.com
 
-Watch GNT Shows freely available online.
+Inclui vídeos dos canais Globo, GNT, Multishow, Sportv, Globo News, Canal Brasil, entre outros.
+
+--- 
+
+Watch Globo TV videos freely available online.

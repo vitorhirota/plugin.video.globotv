@@ -1,2 +1,5 @@
+0.2
+ Change plugin name from gnt to globotv, since it's now scrapping globotv website directly
+
 0.1
  First Version for Eden, basic listing of available shows and its episodes
