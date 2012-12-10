@@ -1,33 +1,60 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-"""
-        Globo.tv XBMC Add-On
-"""
+'''
+    Globo.tv plugin for XBMC
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+'''
+
 # main imports
 from StringIO import StringIO
 import gzip
 import json
 import re
+import sys
+import util
 import urllib
 import urllib2
-import xbmcgui
-import xbmcplugin
+try:
+    import xbmcgui
+    import xbmcplugin
+except:
+    import test.xbmcgui as xbmcgui
+    import test.xbmcplugin as xbmcplugin
 
 try:
     import StorageServer
 except:
-    import storageserverdummy as StorageServer
-cache = StorageServer.StorageServer("Globosat", 12) # (Your plugin name, Cache time in hours)
+    import test.storageserverdummy as StorageServer
 
-_thisPlugin = int(sys.argv[1])
-print 'cache: %s' % cache.get('1000')
+cache = StorageServer.StorageServer("Globosat", 12)
+_thisPlugin = 0
 
 # url masks
 BASE_URL = 'http://globotv.globo.com'
 SHOW_URL = BASE_URL + '%(uri)s'
-RAIL_URL = SHOW_URL + '/_/trilhos/%(rail_id)s/page/%(page)s'
-INFO_URL = 'http://api.globovideos.com/videos/%s/playlist/callback/wmPlayerPlaylistLoaded'
+RAIL_URL = SHOW_URL + '/_/trilhos/%(rail_id)s/page/%(page)s/'
+INFO_URL = 'http://api.globovideos.com/videos/%s/playlist'
 OFFER_URL = 'http://globotv.globo.com/_/oferta_tematica/%(slug)s.json'
+
+
+# === Helper methods ================================================================= #
+def get_request(url):
+    request = urllib2.Request(url)
+    request.add_header('Accept-encoding', 'gzip')
+    request.add_header('User-Agent', 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:15.0) Gecko/20100101 Firefox/15.0.1')
+    return request
 
 
 def get_page(url):
@@ -62,10 +89,13 @@ def get_rails(uri):
     data = get_page(SHOW_URL % {'uri': uri})
     # match video 'rail's id and name
     # match ex: ('4dff4cf691089163a9000002', 'Edi\xc3\xa7\xc3\xa3o')
-    rails = re.compile('data-trilho-id="(.+?)"[\s\S]+?<h2.*title="(.+?)"').findall(data)
+    # print data
+    rails = re.compile('id="trilho-(.+?)"[\s\S]+?<h2.*title="(.+?)"').findall(data)
+    # print rails
     return rails
 
 
+# === Navigation methods ============================================================= #
 def list_categories():
     items = []
     categories = cache.cacheFunction(get_shows_by_categories)
@@ -91,46 +121,53 @@ def list_shows(**kwargs):
 def list_rails(**kwargs):
     uri = kwargs['uri']
     rails = cache.cacheFunction(get_rails, uri)
+    params = {
+        'action': 'list_videos',
+        'filter': 'rail',
+        'uri': uri, 
+        'rail_id': '',
+        'page': 1,
+    }
     for rail_id, name in rails:
-        params = {
-            'action': 'list_videos', 
-            'filter': 'rail', 
-            'uri': uri, 
-            'rail_id': rail_id,
-            'page': 1,
-        }
+        name = ' '.join(x.capitalize() for x in name.split(' '))
+        params['rail_id'] = rail_id
         addFolder(name, '', params)
 
 
 def list_videos(**kwargs):
-    _filter = kwargs['filter']
-    if _filter == 'rail':
-        data = get_page(RAIL_URL % kwargs)
-        # match video 'rail's
-        # match ex: ('Guias do Complexo - parte 1', '2256997', '24/11/2012', 
-        #            'http://s02.video.glbimg.com/180x108/2256997.jpg', '05:37', 
-        #            'A ag\xc3\xaancia de turismo Bom Fruto forma guias [...] para os tursitas'), 
-        regExp = '<li.*data-video-title="(.+?)"[\s]+data-video-id="(.+?)"[\s]+data-video-data-exibicao="(.+?)">[\s\S]+?' \
-                 + '<img.+src="(.+?)"[\s\S]+?' \
-                 + '<span class="duracao">(.+?)</span>[\s\S]+?' \
-                 + 'div class="balao">[\s]+?<p>[\s]+?([\w].+?)[\s]+?</p>'
-        videos=re.compile(regExp).findall(data)
-        for title, _id, date, thumb, duration, descr in videos:
-            params = {'action': 'play', 'video_id': _id}
-            listItemAttr = {
-                'Date': date.replace('/', '.'),
-                'Duration': duration,
-                'PlotOutline': descr,
-            }
-            addItem(title, thumb, params, listItemAttr)
-            cache.set(_id, repr([title, date, thumb, duration, descr]))
+    if kwargs.get('rail_id'):
+        video_count = 0
+        while video_count < 10:
+            data = get_page(RAIL_URL % kwargs)
+            # match video 'rail's
+            # match ex: ('Guias do Complexo - parte 1', '2256997', '24/11/2012', 
+            #            'http://s02.video.glbimg.com/180x108/2256997.jpg', '05:37', 
+            #            'A ag\xc3\xaancia de turismo Bom Fruto forma guias [...] para os tursitas'), 
+            regExp = (
+                '<li.*data-video-title="(.+?)"[\s]+data-video-id="(.+?)"[\s]+data-video-data-exibicao="(.+?)">[\s\S]+?'
+                + '<img.+src="(.+?)"[\s\S]+?'
+                + '<span class="duracao.*?">(.+?)</span>[\s\S]+?'
+                + 'div class="balao">[\s]+?<p>[\s]+?([\w].+?)[\s]+?</p>'
+            )
+            videos=re.compile(regExp).findall(data)
+            for title, _id, date, thumb, duration, descr in videos:
+                params = {'action': 'play', 'video_id': _id}
+                listItemAttr = {
+                    'Date': date.replace('/', '.'),
+                    'Duration': duration,
+                    'PlotOutline': descr,
+                }
+                addItem(title, thumb, params, listItemAttr)
+                cache.set(_id, repr([title, date, thumb, duration, descr]))
+            video_count += len(videos)
+            kwargs['page'] += 1
         # add next page
         if len(videos) > 0:
             kwargs['page'] += 1
             addFolder('Próxima Página', '', kwargs)
     else:
         data = get_page(OFFER_URL % kwargs)
-        key = {'last': 'ultimos_videos', 'popular': 'videos_mais_vistos'}[_filter]
+        key = {'last': 'ultimos_videos', 'popular': 'videos_mais_vistos'}[kwargs.get('filter') or 'last']
         content = json.loads(data)[key]
         for entry in content:
             title, _id, date, thumb, duration, descr = (entry['titulo'], entry['id'], 
@@ -149,29 +186,30 @@ def list_videos(**kwargs):
 def play(**kwargs):
     video_id = kwargs['video_id']
     data = get_page(INFO_URL % video_id)
-    content = json.loads(data[23:-2])['videos'][0]
+    content = json.loads(data)['videos'][0]
     _type  = content['type']
     
     if _type == 'Video':
         listItem = getVideoItem(video_id, content)
         xbmcplugin.setResolvedUrl(handle=_thisPlugin, succeeded=True, listitem=listItem) 
-    elif _type == 'Gallery':
+    elif _type in ('Gallery', 'FullEpisode'):
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         playlist.clear()
         # queue all entries
-        for entry in content['children']:
+        for idx, entry in enumerate(content['children']):
             listItem = getVideoItem(entry['id'])
             listItem.setProperty('IsPlayable', 'true')
             listItem.setProperty('Video', 'true')
-            playlist.add('%s?action=play&video_id=%s' % (sys.argv[0], entry['id']), 
-                         listItem)
+            playlist.add(url='%s?action=play&video_id=%s' % (sys.argv[0], entry['id']), 
+                         listitem=listItem,
+                         index=idx)
         xbmc.executebuiltin('playlist.playoffset(video , 0)')
 
 
 def getVideoItem(video_id, content=''):
     if not content:
         data = get_page(INFO_URL % video_id)
-        content = json.loads(data[23:-2])['videos'][0]
+        content = json.loads(data)['videos'][0]
 
     if content['type'] == 'Video':
         # get 'iphone' video url
@@ -180,7 +218,6 @@ def getVideoItem(video_id, content=''):
             if 'iphone' in res['url']:
                 vUrl = res['url']
                 break
-        print vUrl
         try:
             title, date, thumb, duration, descr = eval(cache.get(video_id))
         except:
@@ -227,20 +264,22 @@ def get_params():
         r = {}
     return r
 
-              
-params=get_params()
-if 'path' in params:
-    params['path'] = urllib.unquote(params['path'])
-if 'uri' in params:
-    # unquote uri params
-    params['uri'] = urllib.unquote(params['uri'])
-if 'page' in params:
-    # cast to int
-    params['page'] = int(params['page'])
-# call action function with given params
-action = params.get('action') or 'list_categories'
-print 'Action: %s' % action
-print 'Params: %s' % params
-locals()[action](**params)
 
-xbmcplugin.endOfDirectory(_thisPlugin)
+if __name__ == '__main__':
+    _thisPlugin = int(sys.argv[1])
+    params=get_params()
+    if 'path' in params:
+        params['path'] = urllib.unquote(params['path'])
+    if 'uri' in params:
+        # unquote uri params
+        params['uri'] = urllib.unquote(params['uri'])
+    if 'page' in params:
+        # cast to int
+        params['page'] = int(params['page'])
+    # call action function with given params
+    action = params.get('action') or 'list_categories'
+    print 'Action: %s' % action
+    print 'Params: %s' % params
+    locals()[action](**params)
+
+    xbmcplugin.endOfDirectory(_thisPlugin)

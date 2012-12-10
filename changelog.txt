@@ -1,5 +1,11 @@
+0.3
+ PT: Melhorado a regexp de busca de vídeos, corrigindo casos em que o mesmo id de seção seria buscado duas vezes.
+ EN: Improved video scraping regexp, correcting cases in which the same section id would be fetched twice.
+
 0.2
- Change plugin name from gnt to globotv, since it's now scrapping globotv website directly
+ PT: Alterado o nome do plugin de gnt para globotv, já que agora busca diretamente no website da globotv.
+ EN: Change plugin name from gnt to globotv, since it's now scrapping globotv website directly.
 
 0.1
- First Version for Eden, basic listing of available shows and its episodes
+ PT: Primeira versão para Eden, listagem básica dos programas disponíveis e seus episódios.
+ EN: First Version for Eden, basic listing of available shows and its episodes.
