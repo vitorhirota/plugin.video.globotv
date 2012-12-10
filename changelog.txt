@@ -1,3 +1,6 @@
+0.31
+ PT: Corrigido casos em que próxima página não retorna nenhum vídeo
+
 0.3
  PT: Melhorado a regexp de busca de vídeos, corrigindo casos em que o mesmo id de seção seria buscado duas vezes.
  EN: Improved video scraping regexp, correcting cases in which the same section id would be fetched twice.

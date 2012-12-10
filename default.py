@@ -23,7 +23,7 @@ import gzip
 import json
 import re
 import sys
-import util
+# import util
 import urllib
 import urllib2
 try:
@@ -150,6 +150,7 @@ def list_videos(**kwargs):
                 + 'div class="balao">[\s]+?<p>[\s]+?([\w].+?)[\s]+?</p>'
             )
             videos=re.compile(regExp).findall(data)
+            if len(videos) == 0: break
             for title, _id, date, thumb, duration, descr in videos:
                 params = {'action': 'play', 'video_id': _id}
                 listItemAttr = {
@@ -203,7 +204,7 @@ def play(**kwargs):
             playlist.add(url='%s?action=play&video_id=%s' % (sys.argv[0], entry['id']), 
                          listitem=listItem,
                          index=idx)
-        xbmc.executebuiltin('playlist.playoffset(video , 0)')
+        xbmc.executebuiltin('playlist.playoffset(video, 0)')
 
 
 def getVideoItem(video_id, content=''):
