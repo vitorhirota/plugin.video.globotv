@@ -1,6 +1,10 @@
+0.4
+ PT: Possibilidade de assistir aos vídeos em alta-resolução quando disponível, e autenticação, permitindo a usuários assinantes assistir ao conteúdo exclusivo.
+ EN: HD videos when available are now streaming and authentication for paying users, allowing for subscribers only video streaming.
+
 0.3.1
- PT: Corrigido casos em que próxima página não retorna nenhum vídeo
- EN: Fixed when next page does not bring any results
+ PT: Corrigido casos em que próxima página não retorna nenhum vídeo.
+ EN: Fixed when next page does not bring any results.
 
 0.3
  PT: Melhorado a regexp de busca de vídeos, corrigindo casos em que o mesmo id de seção seria buscado duas vezes.
