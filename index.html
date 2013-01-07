@@ -78,7 +78,7 @@
 			window.onload=function(){
 				_as = document.getElementsByClassName('download')
 				for(i=0; i<_as.length; i++) {
-					a[i].onclick=function(){
+					_as[i].onclick=function(){
 						var that=this;
 						_gaq.push(['_trackEvent', 'Download', 'zip', this.href]);
 						setTimeout(function(){location.href=that.href;},200);
