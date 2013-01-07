@@ -5,6 +5,7 @@
 abortRequested = False
 PLAYLIST_MUSIC = 0
 PLAYLIST_VIDEO = 1
+LOGDEBUG = 1
 
 class PlayList():
     def __init__(self, *args, **kwargs):
@@ -59,3 +60,5 @@ def Keyboard(*args, **kwargs):
     print "XBMC : Keyboard : " + repr(args) + " - " + repr(kwargs)
     return "Dummy test string"
 
+def log(*args, **kwargs):
+    print repr(args)

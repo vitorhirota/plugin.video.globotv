@@ -41,7 +41,7 @@ cache = StorageServer.StorageServer("Globosat", 12)
 _thisPlugin = 0
 _loginInfo = None
 _settings = xbmcaddon.Addon(id='plugin.video.globotv')
-_scraper = util.Scrapper()
+_scrapper = util.Scrapper()
 
 # url masks
 BASE_URL = 'http://globotv.globo.com'
@@ -61,10 +61,11 @@ def authenticate():
             'login-passaporte': _settings.getSetting('username'),
             'senha-passaporte': _settings.getSetting('password'),
         }
-        # print _scraper.get_page(LOGIN_URL, data)
-        _scraper.__cj__.clear_session_cookies()
-        if len(_scraper.__cj__) > 1:
-            _logininfo = _scraper.__cj__.dump()
+        _scrapper.get_page(LOGIN_URL, data)
+        # _scrapper.__cj__.clear_session_cookies()
+        if len(_scrapper.__cj__) > 1:
+            _logininfo = _scrapper.__cj__.dump()
+            # import pdb; pdb.set_trace()
             _settings.setSetting('login_info', _logininfo)
             log('successfully authenticated')
         else:
@@ -75,7 +76,7 @@ def authenticate():
 
 def get_shows_by_categories():
     categories = {}
-    data = _scraper.get_page(BASE_URL)
+    data = _scrapper.get_page(BASE_URL)
     # match categories
     match_categories = re.compile('<h4 data-tema-slug="(.+?)">(.+?)<span[\s\S]+?<ul>([\s\S]+?)</ul>').findall(data)
     for slug, category, content in match_categories:
@@ -87,7 +88,7 @@ def get_shows_by_categories():
 
 
 def get_rails(uri):
-    data = _scraper.get_page(SHOW_URL % {'uri': uri})
+    data = _scrapper.get_page(SHOW_URL % {'uri': uri})
     # match video 'rail's id and name
     # match ex: ('4dff4cf691089163a9000002', 'Edi\xc3\xa7\xc3\xa3o')
     # print data
@@ -97,7 +98,9 @@ def get_rails(uri):
 
 
 def get_hashes(video_id, resource_ids=[]):
-    data = _scraper.get_page(HASH_URL % (video_id, '|'.join(resource_ids)))
+    data = _scrapper.get_page(HASH_URL % (video_id, '|'.join(resource_ids)))
+    log('video id: %s, resource ids: %s' % (video_id, '|'.join(resource_ids)))
+    log ('hashes: %s' % data)
     hashes = json.loads(data)
     return hashes
 
@@ -112,18 +115,25 @@ def get_list_items(data):
     items = data.get('children') \
             or [{'id': data['id'], 'resources': data['resources']}]
 
+    resolved = False
     for i in transpose_items(items, _settings.getSetting('video_quality')):
-        # print 'items:', i
-        # print 'ids:', [x[0] for x in i]
+        # log('items: %s' % i)
+        # log('ids: %s' % [x[0] for x in i])
         hashes = hash_util.setSignedHashes(get_hashes(data['id'], [x[0] for x in i]))
         if len(hashes) == 1:
             hashes *= len(i)
         urls = ['?'.join(i) for i in zip([x[1] for x in i], hashes)]
         
-        response = urllib2.urlopen(_scraper.get_request(urls[0]))
-        if response.getcode() == 200: break
+        try:
+            response = urllib2.urlopen(urls[0])
+            if response.getcode() == 200: 
+                resolved = True
+                break
+        except:
+            continue
 
-    # print 'resolved urls:', urls
+    if not resolved:
+        raise Exception('No videos resolved.')
 
     listItems = []
     for idx, item in enumerate(items):
@@ -194,7 +204,7 @@ def list_videos(**kwargs):
     if kwargs.get('rail_id'):
         video_count = 0
         while video_count < 10:
-            data = _scraper.get_page(RAIL_URL % kwargs)
+            data = _scrapper.get_page(RAIL_URL % kwargs)
             # match video 'rail's
             # match ex: ('Guias do Complexo - parte 1', '2256997', '24/11/2012', 
             #            'http://s02.video.glbimg.com/180x108/2256997.jpg', '05:37', 
@@ -223,7 +233,7 @@ def list_videos(**kwargs):
             kwargs['page'] += 1
             addFolder('Próxima Página', '', kwargs)
     else:
-        data = _scraper.get_page(OFFER_URL % kwargs)
+        data = _scrapper.get_page(OFFER_URL % kwargs)
         key = {'last': 'ultimos_videos', 'popular': 'videos_mais_vistos'}[kwargs.get('filter') or 'last']
         content = json.loads(data)[key]
         for entry in content:
@@ -242,7 +252,7 @@ def list_videos(**kwargs):
 
 def play(**kwargs):
     video_id = kwargs['video_id']
-    data = cache.cacheFunction(_scraper.get_page, INFO_URL % video_id)
+    data = cache.cacheFunction(_scrapper.get_page, INFO_URL % video_id)
     content = json.loads(data)['videos'][0]
     _type  = content['type']
 
@@ -257,7 +267,6 @@ def play(**kwargs):
                          listitem=listItem)
         xbmc.executebuiltin('playlist.playoffset(video, 0)')
     else:
-
         xbmcplugin.setResolvedUrl(handle=_thisPlugin, succeeded=True, listitem=listItems[0]) 
 
 # === Helper methods ================================================================= #
@@ -284,7 +293,7 @@ def log(msg):
     import inspect
     _dbg = _settings.getSetting('debug')
     if _dbg:
-        print '%s: %s: %s' % ('globotv', inspect.stack()[1][3], msg)
+        xbmc.log('[globotv] %s: %s' % (inspect.stack()[1][3], msg))
         
 
 def get_params():
@@ -301,7 +310,7 @@ if __name__ == '__main__':
     _thisPlugin = int(sys.argv[1])
 
     # login info
-    _loginInfo = _settings.getSetting('login_info')
+    # _loginInfo = _settings.getSetting('login_info')
     _username = _settings.getSetting('username')
     _password = _settings.getSetting('password')
     if not _loginInfo and _username and _password:

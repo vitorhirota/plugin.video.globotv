@@ -1,27 +1,15 @@
-'''
-    Globo.tv plugin for XBMC
-    
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-    
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-'''
-
+import gzip
 import sys 
-
+import urllib
+import urllib2
 from cookielib import CookieJar
+
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
+from StringIO import StringIO
+
 
 class SCookieJar(CookieJar):
     def __init__(self, string=None, policy=None):
@@ -32,11 +20,6 @@ class SCookieJar(CookieJar):
     def dump(self):
         return pickle.dumps(self._cookies)
 
-
-import gzip
-import urllib
-import urllib2
-from StringIO import StringIO
 
 class Scrapper():
     __cj__ = SCookieJar()

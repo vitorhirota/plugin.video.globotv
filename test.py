@@ -10,6 +10,7 @@ import random
 	in the XBMC GUI to test each response.
 '''	
 
+default._settings.setSetting('debug', 'true')
 # setup
 # fetchs categories and shows
 categories = default.cache.cacheFunction(default.get_shows_by_categories)
@@ -20,41 +21,41 @@ show = random.choice(category['shows'])
 rail = random.choice(default.get_rails(show[0]))
 
 
-# test categories
-print '+ Test categories'
-default.list_categories()
-print 
+# # test categories
+# print '+ Test categories'
+# default.list_categories()
+# print 
 
-# test shows
-print '+ Test shows'
-print '... randomly selected for %s' % category['title']
-kwargs = {
-	'slug': slug, 
-	'path': 'root/%s' % slug
-}
-default.list_shows(**kwargs)
-print
+# # # test shows
+# print '+ Test shows'
+# print '... randomly selected for %s' % category['title']
+# kwargs = {
+# 	'slug': slug, 
+# 	'path': 'root/%s' % slug
+# }
+# default.list_shows(**kwargs)
+# print
 
-# test rails
-print '+ Test rails'
-print '... randomly elected %s (%s)' % (show[1], category['title'])
-kwargs = {
-	'uri': show[0]
-}
-default.list_rails(**kwargs)
-print
+# # test rails
+# print '+ Test rails'
+# print '... randomly elected %s (%s)' % (show[1], category['title'])
+# kwargs = {
+# 	'uri': show[0]
+# }
+# default.list_rails(**kwargs)
+# print
 
-# test videos
-print '+ Test videos'
-print '... randomly elected %s (%s)' % (rail[1], show[1])
-kwargs = {
-	'uri': show[0],
-	'rail_id': rail[0],
-	'page': 1
-}
-print 'kwargs:', kwargs
-default.list_videos(**kwargs)
-print
+# # test videos
+# print '+ Test videos'
+# print '... randomly elected %s (%s)' % (rail[1], show[1])
+# kwargs = {
+# 	'uri': show[0],
+# 	'rail_id': rail[0],
+# 	'page': 1
+# }
+# print 'kwargs:', kwargs
+# default.list_videos(**kwargs)
+# print
 
 # test play
 # print '+ Test videos'
@@ -70,13 +71,24 @@ print
 
 # TO-DO
 
-# test login and authorized access
+# test login and authorized access, credentials must be passed via arguments
 # setup
-username = ''
-password = ''
-a_category = categories['novelas']
-a_show = a_category['shows'][0]
-a_rail = default.get_rails(a_show[0])[2]
+if len(sys.argv) > 1:
+	default._settings.setSetting('username', sys.argv[1])
+	default._settings.setSetting('password', sys.argv[2])
+	default.authenticate()
+else:
+	print 'No credentials passed via arguments. Skipping authentication tests.'
+
+
+_loginInfo = default._settings.getSetting('login_info') or None
+if _loginInfo:
+	print 'testing'
+	a_category = categories['novelas']
+	a_show = a_category['shows'][0]
+	a_rail = default.get_rails(a_show[0])[2]
+	
+	default.play(**{'video_id': '2242918'})
 
 # test hash
 
