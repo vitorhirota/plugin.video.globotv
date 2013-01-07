@@ -75,7 +75,7 @@
 				for(i=0; i<_as.length; i++) {
 					a[i].onclick=function(){
 						var that=this;
-						_gaq.push(['_trackEvent', 'Download', 'zip', this.href]);
+						_gaq.push(['_trackEvent', 'Download', 'v0.4', this.href]);
 						setTimeout(function(){location.href=that.href;},200);
 						return false;
 					}
