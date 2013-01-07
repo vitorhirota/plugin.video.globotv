@@ -18,28 +18,30 @@
 '''
 
 # main imports
-from StringIO import StringIO
-import gzip
 import json
 import re
 import sys
-# import util
+import util
 import urllib
 import urllib2
 try:
-    import xbmcgui
-    import xbmcplugin
+    import xbmc, xbmcaddon, xbmcgui, xbmcplugin
 except:
+    import test.xbmc as xbmc
+    import test.xbmcaddon as xbmcaddon
     import test.xbmcgui as xbmcgui
     import test.xbmcplugin as xbmcplugin
-
 try:
     import StorageServer
 except:
     import test.storageserverdummy as StorageServer
 
 cache = StorageServer.StorageServer("Globosat", 12)
+
 _thisPlugin = 0
+_loginInfo = None
+_settings = xbmcaddon.Addon(id='plugin.video.globotv')
+_scraper = util.Scrapper()
 
 # url masks
 BASE_URL = 'http://globotv.globo.com'
@@ -47,34 +49,33 @@ SHOW_URL = BASE_URL + '%(uri)s'
 RAIL_URL = SHOW_URL + '/_/trilhos/%(rail_id)s/page/%(page)s/'
 INFO_URL = 'http://api.globovideos.com/videos/%s/playlist'
 OFFER_URL = 'http://globotv.globo.com/_/oferta_tematica/%(slug)s.json'
+HASH_URL  = 'http://security.video.globo.com/videos/%s/hash?resource_id=%s'
+LOGIN_URL = 'https://login.globo.com/login/151?tam=widget'
 
 
-# === Helper methods ================================================================= #
-def get_request(url):
-    request = urllib2.Request(url)
-    request.add_header('Accept-encoding', 'gzip')
-    request.add_header('User-Agent', 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:15.0) Gecko/20100101 Firefox/15.0.1')
-    return request
-
-
-def get_page(url):
-    request = urllib2.Request(url)
-    request.add_header('Accept-encoding', 'gzip')
-    request.add_header('User-Agent', 'Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:15.0) Gecko/20100101 Firefox/15.0.1')
-    response = urllib2.urlopen(request)
-    if response.info().get('Content-Encoding') == 'gzip':
-        buf = StringIO( response.read())
-        f = gzip.GzipFile(fileobj=buf)
-        data = f.read()
+# === Scrapping methods ============================================================== #
+def authenticate():
+    if not _loginInfo:
+        data = {
+            'botaoacessar': 'acessar',
+            'login-passaporte': _settings.getSetting('username'),
+            'senha-passaporte': _settings.getSetting('password'),
+        }
+        # print _scraper.get_page(LOGIN_URL, data)
+        _scraper.__cj__.clear_session_cookies()
+        if len(_scraper.__cj__) > 1:
+            _logininfo = _scraper.__cj__.dump()
+            _settings.setSetting('login_info', _logininfo)
+            log('successfully authenticated')
+        else:
+            log('invalid user or password')
     else:
-        data = response.read()
-    response.close()
-    return data
+        log('already authenticated')
 
 
 def get_shows_by_categories():
     categories = {}
-    data = get_page(BASE_URL)
+    data = _scraper.get_page(BASE_URL)
     # match categories
     match_categories = re.compile('<h4 data-tema-slug="(.+?)">(.+?)<span[\s\S]+?<ul>([\s\S]+?)</ul>').findall(data)
     for slug, category, content in match_categories:
@@ -86,7 +87,7 @@ def get_shows_by_categories():
 
 
 def get_rails(uri):
-    data = get_page(SHOW_URL % {'uri': uri})
+    data = _scraper.get_page(SHOW_URL % {'uri': uri})
     # match video 'rail's id and name
     # match ex: ('4dff4cf691089163a9000002', 'Edi\xc3\xa7\xc3\xa3o')
     # print data
@@ -94,6 +95,61 @@ def get_rails(uri):
     # print rails
     return rails
 
+
+def get_hashes(video_id, resource_ids=[]):
+    data = _scraper.get_page(HASH_URL % (video_id, '|'.join(resource_ids)))
+    hashes = json.loads(data)
+    return hashes
+
+
+def get_list_items(data):
+    def transpose_items(items, reverse_items):
+        _fn = reverse_items and reversed or list
+        return zip(*[[(j['_id'], j['url'].replace('flash', 'ipad')) for j in _fn(i['resources'])] for i in items])
+
+    hash_util = util.Hash()
+    # set-up resources
+    items = data.get('children') \
+            or [{'id': data['id'], 'resources': data['resources']}]
+
+    for i in transpose_items(items, _settings.getSetting('video_quality')):
+        # print 'items:', i
+        # print 'ids:', [x[0] for x in i]
+        hashes = hash_util.setSignedHashes(get_hashes(data['id'], [x[0] for x in i]))
+        if len(hashes) == 1:
+            hashes *= len(i)
+        urls = ['?'.join(i) for i in zip([x[1] for x in i], hashes)]
+        
+        response = urllib2.urlopen(_scraper.get_request(urls[0]))
+        if response.getcode() == 200: break
+
+    # print 'resolved urls:', urls
+
+    listItems = []
+    for idx, item in enumerate(items):
+        try:
+            title, date, thumb, duration, descr = eval(cache.get(item['id']))
+        except:
+            title, date, thumb, duration, descr = [data['title'], '', '', '', '']
+        
+        listItem = xbmcgui.ListItem(title, iconImage="DefaultVideo.png", thumbnailImage=thumb, path=urls[idx])
+        listItem.setInfo('video', {
+            'date'        : date.replace('/', '.'),
+            'duration'    : duration,
+            'genre'       : data.get('category'),
+            'plotoutline' : descr,
+            'title'       : title,
+            'duration'    : duration,
+            'studio'      : data.get('channel'),
+            'premiered'   : '%s-%s-%s' % (date[-4:], date[3:5], date[:2]),
+            'aired'       : '%s-%s-%s' % (date[-4:], date[3:5], date[:2]),
+        })
+        listItem.setProperty('IsPlayable', 'true')
+        listItem.setProperty('Video', 'true')
+        listItem.setProperty('VideoId', str(item['id']))
+        # add to return
+        listItems.append(listItem)
+    return listItems
 
 # === Navigation methods ============================================================= #
 def list_categories():
@@ -138,7 +194,7 @@ def list_videos(**kwargs):
     if kwargs.get('rail_id'):
         video_count = 0
         while video_count < 10:
-            data = get_page(RAIL_URL % kwargs)
+            data = _scraper.get_page(RAIL_URL % kwargs)
             # match video 'rail's
             # match ex: ('Guias do Complexo - parte 1', '2256997', '24/11/2012', 
             #            'http://s02.video.glbimg.com/180x108/2256997.jpg', '05:37', 
@@ -167,7 +223,7 @@ def list_videos(**kwargs):
             kwargs['page'] += 1
             addFolder('Próxima Página', '', kwargs)
     else:
-        data = get_page(OFFER_URL % kwargs)
+        data = _scraper.get_page(OFFER_URL % kwargs)
         key = {'last': 'ultimos_videos', 'popular': 'videos_mais_vistos'}[kwargs.get('filter') or 'last']
         content = json.loads(data)[key]
         for entry in content:
@@ -186,57 +242,25 @@ def list_videos(**kwargs):
 
 def play(**kwargs):
     video_id = kwargs['video_id']
-    data = get_page(INFO_URL % video_id)
+    data = cache.cacheFunction(_scraper.get_page, INFO_URL % video_id)
     content = json.loads(data)['videos'][0]
     _type  = content['type']
-    
-    if _type == 'Video':
-        listItem = getVideoItem(video_id, content)
-        xbmcplugin.setResolvedUrl(handle=_thisPlugin, succeeded=True, listitem=listItem) 
-    elif _type in ('Gallery', 'FullEpisode'):
+
+    listItems = get_list_items(content)
+    if len(listItems) > 1:
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         playlist.clear()
         # queue all entries
-        for idx, entry in enumerate(content['children']):
-            listItem = getVideoItem(entry['id'])
-            listItem.setProperty('IsPlayable', 'true')
-            listItem.setProperty('Video', 'true')
-            playlist.add(url='%s?action=play&video_id=%s' % (sys.argv[0], entry['id']), 
-                         listitem=listItem,
-                         index=idx)
+        for listItem in listItems:
+            print listItem.getProperty('VideoId')
+            playlist.add(url='%s?action=play&video_id=%s' % (sys.argv[0], listItem.getProperty('VideoId')), 
+                         listitem=listItem)
         xbmc.executebuiltin('playlist.playoffset(video, 0)')
+    else:
 
+        xbmcplugin.setResolvedUrl(handle=_thisPlugin, succeeded=True, listitem=listItems[0]) 
 
-def getVideoItem(video_id, content=''):
-    if not content:
-        data = get_page(INFO_URL % video_id)
-        content = json.loads(data)['videos'][0]
-
-    if content['type'] == 'Video':
-        # get 'iphone' video url
-        vUrl = ''
-        for res in content['resources']:
-            if 'iphone' in res['url']:
-                vUrl = res['url']
-                break
-        try:
-            title, date, thumb, duration, descr = eval(cache.get(video_id))
-        except:
-            title, date, thumb, duration, descr = [content['title'], '', '', '', '']
-        listItem = xbmcgui.ListItem(title, iconImage="DefaultVideo.png", thumbnailImage=thumb, path=vUrl)
-        listItem.setInfo('video', {
-            'date'        : date.replace('/', '.'),
-            'duration'    : duration,
-            'genre'       : content.get('category'),
-            'plotoutline' : descr,
-            'title'       : title,
-            'duration'    : duration,
-            'studio'      : content['channel'],
-            'premiered'   : '%s-%s-%s' % (date[-4:], date[3:5], date[:2]),
-            'aired'       : '%s-%s-%s' % (date[-4:], date[3:5], date[:2]),
-        })
-        return listItem
-
+# === Helper methods ================================================================= #
 
 def addFolder(name, thumb, params):
     return addItem(name, thumb, params, isFolder=True)
@@ -256,7 +280,13 @@ def addItem(name, thumb, params, listItemAttr={}, isFolder=False):
             isFolder=isFolder)
     return ok
 
+def log(msg):
+    import inspect
+    _dbg = _settings.getSetting('debug')
+    if _dbg:
+        print '%s: %s: %s' % ('globotv', inspect.stack()[1][3], msg)
         
+
 def get_params():
     qs = sys.argv[2].lstrip('?').rstrip('/').split('&')
     try:
@@ -265,9 +295,18 @@ def get_params():
         r = {}
     return r
 
+# ==================================================================================== #
 
 if __name__ == '__main__':
     _thisPlugin = int(sys.argv[1])
+
+    # login info
+    _loginInfo = _settings.getSetting('login_info')
+    _username = _settings.getSetting('username')
+    _password = _settings.getSetting('password')
+    if not _loginInfo and _username and _password:
+        authenticate()
+
     params=get_params()
     if 'path' in params:
         params['path'] = urllib.unquote(params['path'])
@@ -279,8 +318,8 @@ if __name__ == '__main__':
         params['page'] = int(params['page'])
     # call action function with given params
     action = params.get('action') or 'list_categories'
-    print 'Action: %s' % action
-    print 'Params: %s' % params
+    # print 'Action: %s' % action
+    log('Params: %s' % params)
     locals()[action](**params)
 
     xbmcplugin.endOfDirectory(_thisPlugin)
