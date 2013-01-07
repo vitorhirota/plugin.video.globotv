@@ -63,26 +63,29 @@
 		</div>
 
 		<script type="text/javascript">
-			var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
-			document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
-		</script>
-		<script type="text/javascript">
-			try {
-				var pageTracker = _gat._getTracker("UA-688725-8");
-				pageTracker._trackPageview();
-				// set up event track for downloads 
+
+			var _gaq = _gaq || [];
+			_gaq.push(['_setAccount', 'UA-688725-8']);
+			_gaq.push(['_trackPageview']);
+
+			(function() {
+				var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+				ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+			})();
+
+			// set up event track for downloads 
+			window.onload=function(){
 				_as = document.getElementsByClassName('download')
 				for(i=0; i<_as.length; i++) {
 					a[i].onclick=function(){
 						var that=this;
-						_gaq.push(['_trackEvent', 'Download', 'v0.4', this.href]);
+						_gaq.push(['_trackEvent', 'Download', 'zip', this.href]);
 						setTimeout(function(){location.href=that.href;},200);
 						return false;
 					}
 				}
-			} catch(err) {}
-			</script>
-
-
+			}
+		</script>
 	</body>
 </html>
