@@ -80,7 +80,7 @@
 				for(i=0; i<_as.length; i++) {
 					_as[i].onclick=function(){
 						var that=this;
-						_gaq.push(['_trackEvent', 'Download', 'zip', this.href]);
+						_gaq.push(['_trackEvent', 'Download', 'zip', '0.4']);
 						setTimeout(function(){location.href=that.href;},200);
 						return false;
 					}
