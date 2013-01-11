@@ -41,7 +41,7 @@ cache = StorageServer.StorageServer("Globosat", 12)
 _thisPlugin = 0
 _loginInfo = None
 _settings = xbmcaddon.Addon(id='plugin.video.globotv')
-_scrapper = util.Scrapper()
+_scraper = util.Scraper()
 
 # url masks
 BASE_URL = 'http://globotv.globo.com'
@@ -61,10 +61,10 @@ def authenticate():
             'login-passaporte': _settings.getSetting('username'),
             'senha-passaporte': _settings.getSetting('password'),
         }
-        _scrapper.get_page(LOGIN_URL, data)
-        # _scrapper.__cj__.clear_session_cookies()
-        if len(_scrapper.__cj__) > 1:
-            _logininfo = _scrapper.__cj__.dump()
+        _scraper.get_page(LOGIN_URL, data)
+        # _scraper.__cj__.clear_session_cookies()
+        if len(_scraper.__cj__) > 1:
+            _logininfo = _scraper.__cj__.dump()
             # import pdb; pdb.set_trace()
             _settings.setSetting('login_info', _logininfo)
             log('successfully authenticated')
@@ -76,7 +76,7 @@ def authenticate():
 
 def get_shows_by_categories():
     categories = {}
-    data = _scrapper.get_page(BASE_URL)
+    data = _scraper.get_page(BASE_URL)
     # match categories
     match_categories = re.compile('<h4 data-tema-slug="(.+?)">(.+?)<span[\s\S]+?<ul>([\s\S]+?)</ul>').findall(data)
     for slug, category, content in match_categories:
@@ -88,7 +88,7 @@ def get_shows_by_categories():
 
 
 def get_rails(uri):
-    data = _scrapper.get_page(SHOW_URL % {'uri': uri})
+    data = _scraper.get_page(SHOW_URL % {'uri': uri})
     # match video 'rail's id and name
     # match ex: ('4dff4cf691089163a9000002', 'Edi\xc3\xa7\xc3\xa3o')
     # print data
@@ -98,7 +98,7 @@ def get_rails(uri):
 
 
 def get_hashes(video_id, resource_ids=[]):
-    data = _scrapper.get_page(HASH_URL % (video_id, '|'.join(resource_ids)))
+    data = _scraper.get_page(HASH_URL % (video_id, '|'.join(resource_ids)))
     log('video id: %s, resource ids: %s' % (video_id, '|'.join(resource_ids)))
     log ('hashes: %s' % data)
     hashes = json.loads(data)
@@ -204,7 +204,7 @@ def list_videos(**kwargs):
     if kwargs.get('rail_id'):
         video_count = 0
         while video_count < 10:
-            data = _scrapper.get_page(RAIL_URL % kwargs)
+            data = _scraper.get_page(RAIL_URL % kwargs)
             # match video 'rail's
             # match ex: ('Guias do Complexo - parte 1', '2256997', '24/11/2012', 
             #            'http://s02.video.glbimg.com/180x108/2256997.jpg', '05:37', 
@@ -233,7 +233,7 @@ def list_videos(**kwargs):
             kwargs['page'] += 1
             addFolder('Próxima Página', '', kwargs)
     else:
-        data = _scrapper.get_page(OFFER_URL % kwargs)
+        data = _scraper.get_page(OFFER_URL % kwargs)
         key = {'last': 'ultimos_videos', 'popular': 'videos_mais_vistos'}[kwargs.get('filter') or 'last']
         content = json.loads(data)[key]
         for entry in content:
@@ -252,7 +252,7 @@ def list_videos(**kwargs):
 
 def play(**kwargs):
     video_id = kwargs['video_id']
-    data = cache.cacheFunction(_scrapper.get_page, INFO_URL % video_id)
+    data = cache.cacheFunction(_scraper.get_page, INFO_URL % video_id)
     content = json.loads(data)['videos'][0]
     _type  = content['type']
 

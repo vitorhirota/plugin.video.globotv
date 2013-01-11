@@ -21,7 +21,7 @@ class SCookieJar(CookieJar):
         return pickle.dumps(self._cookies)
 
 
-class Scrapper():
+class Scraper():
     __cj__ = SCookieJar()
     __opener__ = urllib2.build_opener(urllib2.HTTPCookieProcessor(__cj__))
     urllib2.install_opener(__opener__)
