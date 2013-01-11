@@ -314,7 +314,7 @@ if __name__ == '__main__':
     if not _loginInfo:
         _username = _settings.getSetting('username')
         _password = _settings.getSetting('password')
-        if not _username and _password:
+        if _username and _password:
             authenticate()
 
     params=get_params()
