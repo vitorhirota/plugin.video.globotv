@@ -310,11 +310,12 @@ if __name__ == '__main__':
     _thisPlugin = int(sys.argv[1])
 
     # login info
-    # _loginInfo = _settings.getSetting('login_info')
-    _username = _settings.getSetting('username')
-    _password = _settings.getSetting('password')
-    if not _loginInfo and _username and _password:
-        authenticate()
+    _loginInfo = _settings.getSetting('login_info')
+    if not _loginInfo:
+        _username = _settings.getSetting('username')
+        _password = _settings.getSetting('password')
+        if not _username and _password:
+            authenticate()
 
     params=get_params()
     if 'path' in params:
