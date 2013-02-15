@@ -1,3 +1,11 @@
+0.5
+ PT: Alterado estrutura para swift2 e requests.
+ 	 Correções:
+ 	 - 'skipping unplayable item'
+ 	 - cabeçalho de cookie fixo para autorização
+ 	 - casos em que aparentemente nenhum video toca (filtragem de playlists)
+ EN: Major move to swift2 and requests. Bug-fixes.
+
 0.4
  PT: Possibilidade de assistir aos vídeos em alta-resolução quando disponível, e autenticação, permitindo a usuários assinantes assistir ao conteúdo exclusivo.
  EN: HD videos when available are now streaming and authentication for paying users, allowing for subscribers only video streaming.
