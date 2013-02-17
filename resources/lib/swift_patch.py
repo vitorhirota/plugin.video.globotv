@@ -42,7 +42,13 @@ def set_resolved_url(self, url=None, mimetype=None, succeeded=True):
 
 def add_stream_info(self, type, values):
     '''Sets the listitems streamInfo'''
-    return self._listitem.addStreamInfo(type, values)
+    if hasattr(self._listitem, 'addStreamInfo'):
+        return self._listitem.addStreamInfo(type, values)
+    else:
+        if 'duration' in values:
+            from datetime import timedelta
+            values['duration'] = str(timedelta(seconds=values['duration']))
+        self._listitem.setInfo(type, values)
 
 
 @classmethod

@@ -161,4 +161,10 @@ def list_rail_videos(channel, show, rail, page=1):
 
 
 if __name__ == '__main__':
+    import xbmcgui
+    for i in dir(xbmcgui):
+        if '__' in i:
+            print '%s: %s' % (i, getattr(xbmcgui, i))
+    print dir(xbmcgui.ListItem)
+
     plugin.run()
