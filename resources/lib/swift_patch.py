@@ -45,7 +45,7 @@ def add_stream_info(self, type, values):
     if hasattr(self._listitem, 'addStreamInfo'):
         return self._listitem.addStreamInfo(type, values)
     else:
-        if 'duration' in values:
+        if 'duration' in values and isinstance(values['duration'], int):
             from datetime import timedelta
             values['duration'] = str(timedelta(seconds=values['duration']))
         self._listitem.setInfo(type, values)

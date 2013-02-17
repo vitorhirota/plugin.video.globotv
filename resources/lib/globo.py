@@ -35,24 +35,10 @@ HASH_URL = 'http://security.video.globo.com/videos/%s/hash?resource_id=%s'
 LOGIN_URL = 'https://login.globo.com/login/151?tam=widget'
 
 
-class GloboAuth(requests.auth.AuthBase):
-    """Attaches HTTP Globo Authentication to the given Request object."""
-    def __init__(self, userid):
-        # setup any auth-related data here
-        self.userid = userid
-
-    def __call__(self, r):
-        # modify and return the request
-        if self.userid:
-            r.prepare_cookies({'GLBID': self.userid})
-        return r
-
-
 class GloboApi(object):
     def __init__(self, plugin, cache):
         self.plugin = plugin
         self.cache = cache
-        self.auth = GloboAuth(self.authenticate())
 
     def _get_cached(self, key):
         data = self.cache.get(key)
@@ -64,17 +50,18 @@ class GloboApi(object):
         elif 'http://' in key:
                 r = requests.get(key)
                 data = (r.headers.get('content-type') == 'application/json'
-                        and r.json() or r.text)
+                        and json.loads(r.text) or r.text)
                 self.cache.set(key, repr(data))
         return data
 
     def _get_hashes(self, video_id, resource_ids):
         args = (video_id, '|'.join(resource_ids))
-        req = requests.get(HASH_URL % args, auth=self.auth)
+        _cookies = {'GLBID': self.authenticate()}
+        req = requests.get(HASH_URL % args, cookies=_cookies)
         self.plugin.log.debug('resource ids: %s' % '|'.join(resource_ids))
         self.plugin.log.debug('return: %s' % req.text)
         try:
-            data = req.json()
+            data = json.loads(req.text)
             return data['hash']
         except ValueError:
             msg = 'JSON not returned. Message returned:\n%s' % req.text
@@ -190,7 +177,7 @@ class GloboApi(object):
         return videos
 
     def get_offer_videos(**kwargs):
-        data = requests.get(OFFER_URL % kwargs).json()
+        data = json.loads(requests.get(OFFER_URL % kwargs).text)
         key = {'last': 'ultimos_videos',
                'popular': 'videos_mais_vistos'}[kwargs.get('filter') or 'last']
         content = json.loads(data)[key]
@@ -236,7 +223,7 @@ class GloboApi(object):
 
         if (not hd_first or
                 (data.get('subscriber_only') is True and
-                 not self.auth.userid)):
+                 not self.authenticate())):
             return resources[0]['url']
         else:
             r = resources[-1]
