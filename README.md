@@ -6,12 +6,12 @@ Inclui vídeos dos canais Globo, GNT, Multishow, Sportv, Globo News, Canal Brasi
 
 Para alterações, verifique o [changelog](https://github.com/vitorhirota/plugin.video.globotv/blob/master/changelog.txt).
 
-Para downloads de arquivos .zip de instalação, veja a página de [downloads](https://github.com/vitorhirota/plugin.video.globotv/downloads).
+Para downloads de arquivos .zip de instalação, veja a página de [tags](https://github.com/vitorhirota/plugin.video.globotv/tags).
 
 --- 
 
 Watch Globo TV videos freely available online.
 
-Check the [downloads](https://github.com/vitorhirota/plugin.video.globotv/downloads) page for pre-packaged .zip install files.
+Check the [tags](https://github.com/vitorhirota/plugin.video.globotv/tags) page for pre-packaged .zip install files.
 
 [![githalytics.com alpha](https://cruel-carlota.pagodabox.com/8f485bc414511ca598e31767d5746cdf "githalytics.com")](http://githalytics.com/vitorhirota/plugin.video.globotv)
