@@ -59,7 +59,7 @@ class GloboApi(object):
         _cookies = {'GLBID': self.authenticate()}
         req = requests.get(HASH_URL % args, cookies=_cookies)
         self.plugin.log.debug('resource ids: %s' % '|'.join(resource_ids))
-        self.plugin.log.debug('return: %s' % req.text.encode('ascii', 'replace')
+        self.plugin.log.debug('return: %s' % req.text.encode('ascii', 'replace'))
         try:
             data = json.loads(req.text)
             return data['hash']
