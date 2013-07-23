@@ -1,3 +1,19 @@
+0.5.4
+ PT: Correção da lista de recursos de vídeo
+ EN: Video resource list fix
+
+0.5.3
+ PT: Correção de bug
+ EN: statement fix
+
+0.5.2
+ PT: Correção de UnicodeError para algumas mensagens de log.
+ EN: UnicodeError fix for some log messages.
+
+0.5.1
+ PT: Correção para retro compatibilidade com Eden
+ EN: Backwards compatibility for Eden
+
 0.5
  PT: Alterado estrutura para swift2 e requests.
  	 Correções:

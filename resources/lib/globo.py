@@ -48,10 +48,10 @@ class GloboApi(object):
             except:
                 pass
         elif 'http://' in key:
-                r = requests.get(key)
-                data = (r.headers.get('content-type') == 'application/json'
-                        and json.loads(r.text) or r.text)
-                self.cache.set(key, repr(data))
+            r = requests.get(key)
+            data = (r.headers.get('content-type') == 'application/json'
+                    and json.loads(r.text) or r.text)
+            self.cache.set(key, repr(data))
         return data
 
     def _get_hashes(self, video_id, resource_ids):
@@ -59,7 +59,8 @@ class GloboApi(object):
         _cookies = {'GLBID': self.authenticate()}
         req = requests.get(HASH_URL % args, cookies=_cookies)
         self.plugin.log.debug('resource ids: %s' % '|'.join(resource_ids))
-        self.plugin.log.debug('return: %s' % req.text.encode('ascii', 'replace'))
+        self.plugin.log.debug('return: %s' %
+                              req.text.encode('ascii', 'replace'))
         try:
             data = json.loads(req.text)
             return data['hash']
@@ -116,13 +117,13 @@ class GloboApi(object):
         categories = {}
         data = self._get_cached(BASE_URL)
         # match categories
-        rexp = ('<h4 data-tema-slug="(.+?)">(.+?)'
-                + '<span[\s\S]+?<ul>([\s\S]+?)</ul>')
+        rexp = ('<h4 data-tema-slug="(.+?)">(.+?)' +
+                '<span[\s\S]+?<ul>([\s\S]+?)</ul>')
         for slug, category, content in re.compile(rexp).findall(data):
             # match show uri, names and thumb and return an object
             # match: ('/gnt/decora', 'Decora', 'http://s2.glbimg.com/[.].png'),
-            shows_re = ('<a href="(.+?)".*programa="(.+?)">'
-                        + '[\s\S]+?<img data-src="(.+?)"')
+            shows_re = ('<a href="(.+?)".*programa="(.+?)">' +
+                        '[\s\S]+?<img data-src="(.+?)"')
             shows = re.compile(shows_re).findall(content)
             categories[slug] = {'title': category, 'shows': shows}
         return categories
@@ -209,6 +210,7 @@ class GloboApi(object):
             return [util.struct(data)]
 
     def resolve_video_url(self, video_id):
+        # import pydevd; pydevd.settrace()
         # which index to look in the list
         hd_first = int(self.plugin.get_setting('video_quality') or 1)
         data = self._get_video_info(video_id)
@@ -219,11 +221,12 @@ class GloboApi(object):
 
         resources = [r for r in sorted(data['resources'],
                                        key=lambda v: v.get('bitrate') or 0)
-                     if r.get('delivery_type') in (None, 'download')]
+                     if r.get('delivery_type') == 'download']
 
+        # temporary break-fix
         if (not hd_first or
                 (data.get('subscriber_only') is True and
-                 not self.authenticate())):
+                not self.authenticate())):
             return resources[0]['url']
         else:
             r = resources[-1]
@@ -231,3 +234,6 @@ class GloboApi(object):
             hashes = self._get_hashes(video_id, [r['_id']])
             signed_hashes = util.hashJS.get_signed_hashes(hashes)
             return '?'.join([url, signed_hashes[0]])
+
+
+# test
