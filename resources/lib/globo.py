@@ -31,9 +31,9 @@ SHOW_URL = BASE_URL + '%(uri)s'
 RAIL_URL = SHOW_URL + '/_/trilhos/%(rail)s/page/%(page)s/'
 INFO_URL = 'http://api.globovideos.com/videos/%s/playlist'
 OFFER_URL = 'http://globotv.globo.com/_/oferta_tematica/%(slug)s.json'
-HASH_URL = 'http://security.video.globo.com/videos/%s/hash?resource_id=%s'
+HASH_URL = ('http://security.video.globo.com/videos/%s/hash?'
+            + 'resource_id=%s&version=2.5.4&player=flash')
 LOGIN_URL = 'https://login.globo.com/login/151?tam=widget'
-
 
 class GloboApi(object):
     def __init__(self, plugin, cache):
@@ -54,7 +54,7 @@ class GloboApi(object):
             self.cache.set(key, repr(data))
         return data
 
-    def _get_hashes(self, video_id, resource_ids):
+    def _get_hashes(self, video_id, resource_ids, retry=False):
         args = (video_id, '|'.join(resource_ids))
         _cookies = {'GLBID': self.authenticate()}
         req = requests.get(HASH_URL % args, cookies=_cookies)
@@ -71,7 +71,12 @@ class GloboApi(object):
         except KeyError:
             args = (data['http_status_code'], data['message'])
             self.plugin.log.error('Request error: [%s] %s' % args)
-            raise
+            self.plugin.set_setting('glbid', '')
+            self.plugin.log.debug('cleaning globo id')
+            if not retry:
+                self.plugin.log.debug('retrying authentication')
+                return self._get_hashes(video_id, resource_ids, True)
+            raise Exception(data['message'])
 
     def _get_video_info(self, video_id):
         recache = False
@@ -111,19 +116,19 @@ class GloboApi(object):
                 self.plugin.notify(self.plugin.get_string(31001))
         elif glbid:
             self.plugin.log.debug('already authenticated')
-            return glbid
+        return glbid
 
     def get_shows_by_categories(self):
         categories = {}
         data = self._get_cached(BASE_URL)
         # match categories
         rexp = ('<h4 data-tema-slug="(.+?)">(.+?)' +
-                '<span[\s\S]+?<ul>([\s\S]+?)</ul>')
+                r'<span[\s\S]+?<ul>([\s\S]+?)</ul>')
         for slug, category, content in re.compile(rexp).findall(data):
             # match show uri, names and thumb and return an object
             # match: ('/gnt/decora', 'Decora', 'http://s2.glbimg.com/[.].png'),
             shows_re = ('<a href="(.+?)".*programa="(.+?)">' +
-                        '[\s\S]+?<img data-src="(.+?)"')
+                        r'[\s\S]+?<img data-src="(.+?)"')
             shows = re.compile(shows_re).findall(content)
             categories[slug] = {'title': category, 'shows': shows}
         return categories
@@ -132,7 +137,7 @@ class GloboApi(object):
         data = self._get_cached(SHOW_URL % {'uri': uri})
         # match video 'rail's id and name
         # match ex: ('4dff4cf691089163a9000002', 'Edi\xc3\xa7\xc3\xa3o')
-        rails_re = 'id="trilho-(.+?)"[\s\S]+?<h2.*title="(.+?)"'
+        rails_re = r'id="trilho-(.+?)"[\s\S]+?<h2.*title="(.+?)"'
         rails = re.compile(rails_re).findall(data)
         return rails
 
@@ -147,11 +152,11 @@ class GloboApi(object):
             # match: (title, video_id, date [DD/MM/AAAA],
             #         thumb, duration [MM:SS], plot)
             regExp = (
-                '<li.*data-video-title="(.+?)"[\s]+data-video-id="(.+?)"[\s]+'
-                + 'data-video-data-exibicao="(.+?)">[\s\S]+?'
-                + '<img.+src="(.+?)"[\s\S]+?'
-                + '<span class="duracao.*?">(.+?)</span>[\s\S]+?'
-                + 'div class="balao">[\s]+?<p>[\s]+?([\w].+?)[\s]+?</p>'
+                r'<li.*data-video-title="(.+?)"[\s]+data-video-id="(.+?)"[\s]+'
+                + r'data-video-data-exibicao="(.+?)">[\s\S]+?'
+                + r'<img.+src="(.+?)"[\s\S]+?'
+                + r'<span class="duracao.*?">(.+?)</span>[\s\S]+?'
+                + r'div class="balao">[\s]+?<p>[\s]+?([\w].+?)[\s]+?</p>'
             )
             matches = re.compile(regExp).findall(data)
             mcount = len(matches)
@@ -184,12 +189,9 @@ class GloboApi(object):
         content = json.loads(data)[key]
         items = []
         for entry in content:
-            title, _id, date, thumb, duration, descr = (entry['titulo'],
-                                                        entry['id'],
-                                                        entry['exibicao'],
-                                                        entry['thumbnail'],
-                                                        entry['duracao'],
-                                                        entry['descricao'])
+            date, duration, descr = (entry['exibicao'],
+                                     entry['duracao'],
+                                     entry['descricao'])
             # params = {'action': 'play', 'video_id': _id}
             items.append({
                 'Date': date.replace('/', '.'),
@@ -210,9 +212,8 @@ class GloboApi(object):
             return [util.struct(data)]
 
     def resolve_video_url(self, video_id):
-        # import pydevd; pydevd.settrace()
         # which index to look in the list
-        hd_first = int(self.plugin.get_setting('video_quality') or 1)
+        hd_first = int(self.plugin.get_setting('video_quality') or 0)
         data = self._get_video_info(video_id)
         self.plugin.log.debug('resolving video: %s' % video_id)
         # this method assumes there's no children
@@ -221,19 +222,19 @@ class GloboApi(object):
 
         resources = [r for r in sorted(data['resources'],
                                        key=lambda v: v.get('bitrate') or 0)
-                     if r.get('delivery_type') == 'download']
+                     if r.has_key('players') and 'flash' in r['players']]
 
-        # temporary break-fix
-        if (not hd_first or
-                (data.get('subscriber_only') is True and
-                not self.authenticate())):
-            return resources[0]['url']
-        else:
-            r = resources[-1]
-            url = r['url'].replace('flash', 'ipad')
-            hashes = self._get_hashes(video_id, [r['_id']])
-            signed_hashes = util.hashJS.get_signed_hashes(hashes)
-            return '?'.join([url, signed_hashes[0]])
+        r = resources[-1] if hd_first else resources[0]
+        hashes = self._get_hashes(video_id, [r['_id']])
+        signed_hashes = util.hashJS.get_signed_hashes(hashes)
+        # live videos might differ
+        query_string = re.sub(r'{{([a-z]*)}}',
+                              r'%(\1)s',
+                              r['query_string_template']) % {
+                                'hash': signed_hashes[0],
+                                'key': 'html5'
+                              }
+        url = '?'.join([r['url'], query_string])
+        self.plugin.log.debug('video url: %s' % url)
+        return url
 
-
-# test

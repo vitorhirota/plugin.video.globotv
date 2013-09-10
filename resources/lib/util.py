@@ -1,7 +1,8 @@
 import htmlentitydefs
 import itertools
 import re
-
+import random
+import time
 
 # simple attributes object
 # supports dict.get method and return None if attr does not exist
@@ -56,11 +57,12 @@ def m(name, bases, dct):
 
 
 class hashJS():
-    __metaclass__ = m
     '''
-        hd content hashing class
+        hd content hashing class, version 2.5.4
         http://s.videos.globo.com/p2/j/api.min.js
     '''
+    __metaclass__ = m
+
     class alist(list):
         '''helper class to "mimic" JS Arrays behavior'''
         def __getitem__(self, key):
@@ -77,234 +79,129 @@ class hashJS():
                 l = itertools.chain.from_iterable([[0]*(k - len(self)), [v]])
                 self.extend(l)
 
-    C = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-    D = 3600
-    E = "=0xAC10FD"
-    F = ""
-
     def get_signed_hashes(self, a):
         a = type(a) == list and a or [a]
-        return map(self.L, a)
+        return map(self.P, a)
 
-    def signed(self, i):
-        if (i & 0x80000000):
-            return -0x100000000 + i
-        return i
+    z = "0123456789abcdef"
+    A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    B = ""
 
-    def _32_lshift(self, data, bits):
-        # return (data & 0xFFFFFF) << bits
-        return self.signed((data << bits) & 0xFFFFFFFF)
-
-    def _32_rshift(self, data, bits):
-        return (data & 0xFFFFFF) >> bits
-
-    def _right_shift(self, data, bits):
-        sign = (data >> 31) & 1
-        if sign:
-            fills = ((sign << bits) - 1) << (32 - bits)
-        else:
-            fills = 0
-        return ((data & 0xffffffff) >> bits) | fills
-
-    def _zero_fill_right_shift(self, data, bits):
-        return (data & 0xffffffff) >> bits
-    ####
-    # the bitwise methods guarantee the same expected behavior as in JS
-    # http://stackoverflow.com/questions/6535373/special-js-operators-in-python
-    ####
-
-    def _b(self, a):
-        b, c = ("", len(a))
+    def rstr2b64(self, a):
+        b, c = ('', len(a))
         for d in range(0, c, 3):
-            e = ord(a[d]) << 16 | (d + 1 < c and ord(a[d+1]) << 8 or 0) | (d + 2 < c and ord(a[d+2]) or 0)
-            for f in range(0, 4):
-                if d * 8 + f * 6 > c * 8:
-                    b += self.F
+            t1 = ord(a[d + 1]) << 8 if (d + 1 < c) else 0
+            t2 = ord(a[d + 2]) if (d + 2 < c) else 0
+            e = ord(a[d]) << 16 | t1 | t2
+            for f in range(4):
+                if d * 8 + f * 6 > len(a) * 8:
+                    b += self.B
                 else:
-                    # zero fill right shift
-                    b += self.C[e >> 6 * (3 - f) & 63]
-        # print '_b:', a, b, c
+                    b += self.A[e >> 6 * (3 - f) & 63]
         return b
 
-    def _c(self, a, b):
-        c, d = ("", 0)
-        a += b[1:9]
-        while d < len(a):
-            e = ord(a[d])
-            f = d + 1 < len(a) and ord(a[d + 1]) or 0
-            # print '_c:', a, b, c, d, e, f
-            if (55296 <= e and e <= 56319 and
-                    56320 <= f and f <= 57343):
-                e = 65536 + ((e & 1023) << 10) + (f & 1023)
-                d += 1
-            # zero fill right shift
-            if e <= 127:
-                c += unichr(e)
-            elif e <= 2047:
-                c += unichr(192 | e >> 6 & 31) + unichr(128 | e & 63)
-            elif e <= 65535:
-                c += unichr(224 | e >> 12 & 15) + unichr(128 | e >> 6 & 63) + unichr(128 | e & 63)
-            elif e <= 2097151:
-                c += unichr(240 | e >> 18 & 7) + unichr(128 | e >> 12 & 63) + unichr(128 | e >> 6 & 63) + unichr(128 | e & 63)
-            d += 1
-        # print '_c:', a, b, c, d
-        return c
-
-    def _d(self, a):
-        b = [0 for c in range((len(a) >> 2)+1)]
-        for c in range(0, len(a) * 8, 8):
-            b[c >> 5] |= (ord(a[c / 8]) & 255) << c % 32
-            # print '_d:', '%2s' % (c >> 5), b
-        # print '_d:', a, b
+    def rstr2hex(self, a):
+        b = ''
+        for c in range(len(a)):
+            d = ord(a[c])
+            b += self.z[d >> 4 & 15] + self.z[d & 15]
         return b
 
-    def _e(self, a):
-        b = ""
-        for c in range(0, len(a) * 32, 8):
-            # zero fill right shift 5] >>> c
-            b += unichr(a[c >> 5] >> c % 32 & 255)
-            # print '_e:', b
-        # print '_e:', a, b
-        return b
-
-    def _f(self, a, b):
-        # print '_f:', a, b
-        c = (a & 65535) + (b & 65535)
-        d = (a >> 16) + (b >> 16) + (c >> 16)
-        # print '_f:', a, b, c, d, self._32_lshift(d, 16) | c & 65535
-        # original: d << 16 | c & 65535
-        return self._32_lshift(d, 16) | c & 65535
-
-    def _g(self, a, b):
-        # print '_g:', a, b
-        # original: a << b | a >>> 32 - b
-        return self._32_lshift(a, b) | self._zero_fill_right_shift(a, 32 - b)
-
-    def _h(self, a, b, c, d, e, h):
-        return self._f(self._g(self._f(self._f(b, a), self._f(d, h)), e), c)
-
-    def _i(self, a, b, c, d, e, f, g):
-        __i = self._h(b & c | ~b & d, a, b, e, f, g)
-        # print '_i:', __i
-        return __i
-
-    def _j(self, a, b, c, d, e, f, g):
-        __j = self._h(b & d | c & ~d, a, b, e, f, g)
-        # print '_j:', __j
-        return __j
-
-    def _k(self, a, b, c, d, e, f, g):
-        __k = self._h(b ^ c ^ d, a, b, e, f, g)
-        # print '_k:', __k
-        return __k
-
-    def _l(self, a, b, c, d, e, f, g):
-        return self._h(c ^ (b | ~d), a, b, e, f, g)
-
-    def _m(self, a, b):
-        # zero fill right shift: 64 >>> 9
-        # print '_m (init):', a, b, b >> 5, (b + 64 >> 9 << 4)
-        a = self.alist(a)
-        a[b >> 5] |= 128 << b % 32
-        a[(b + 64 >> 9 << 4) + 14] = b
-        # print '_m: a: %s, b: %s' % (a, b)
-        c, d, e, g = (1732584193, -271733879, -1732584194, 271733878)
-        for h in range(0, len(a), 16):
-            m, n, o, p = (c, d, e, g)
-            # print '_m ( for):', h, len(a), c, d, e, g
-            c = self._i(c, d, e, g, a[h + 0], 7, -680876936); g = self._i(g, c, d, e, a[h + 1], 12, -389564586)
-            e = self._i(e, g, c, d, a[h + 2], 17, 606105819); d = self._i(d, e, g, c, a[h + 3], 22, -1044525330)
-
-            c = self._i(c, d, e, g, a[h + 4], 7, -176418897); g = self._i(g, c, d, e, a[h + 5], 12, 1200080426)
-            e = self._i(e, g, c, d, a[h + 6], 17, -1473231341); d = self._i(d, e, g, c, a[h + 7], 22, -45705983)
-
-            c = self._i(c, d, e, g, a[h + 8], 7, 1770035416); g = self._i(g, c, d, e, a[h + 9], 12, -1958414417)
-            e = self._i(e, g, c, d, a[h + 10], 17, -42063); d = self._i(d, e, g, c, a[h + 11], 22, -1990404162)
-
-            c = self._i(c, d, e, g, a[h + 12], 7, 1804603682); g = self._i(g, c, d, e, a[h + 13], 12, -40341101) 
-            e = self._i(e, g, c, d, a[h + 14], 17, -1502002290); d = self._i(d, e, g, c, a[h + 15], 22, 1236535329)
-
-            c = self._j(c, d, e, g, a[h + 1], 5, -165796510); g = self._j(g, c, d, e, a[h + 6], 9, -1069501632)
-            e = self._j(e, g, c, d, a[h + 11], 14, 643717713); d = self._j(d, e, g, c, a[h + 0], 20, -373897302)
-
-            c = self._j(c, d, e, g, a[h + 5], 5, -701558691); g = self._j(g, c, d, e, a[h + 10], 9, 38016083)
-            e = self._j(e, g, c, d, a[h + 15], 14, -660478335); d = self._j(d, e, g, c, a[h + 4], 20, -405537848)
-
-            c = self._j(c, d, e, g, a[h + 9], 5, 568446438); g = self._j(g, c, d, e, a[h + 14], 9, -1019803690)
-            e = self._j(e, g, c, d, a[h + 3], 14, -187363961); d = self._j(d, e, g, c, a[h + 8], 20, 1163531501)
-
-            c = self._j(c, d, e, g, a[h + 13], 5, -1444681467); g = self._j(g, c, d, e, a[h + 2], 9, -51403784)
-            e = self._j(e, g, c, d, a[h + 7], 14, 1735328473); d = self._j(d, e, g, c, a[h + 12], 20, -1926607734)
-
-            c = self._k(c, d, e, g, a[h + 5], 4, -378558); g = self._k(g, c, d, e, a[h + 8], 11, -2022574463)
-            e = self._k(e, g, c, d, a[h + 11], 16, 1839030562); d = self._k(d, e, g, c, a[h + 14], 23, -35309556)
-
-            c = self._k(c, d, e, g, a[h + 1], 4, -1530992060); g = self._k(g, c, d, e, a[h + 4], 11, 1272893353)
-            e = self._k(e, g, c, d, a[h + 7], 16, -155497632); d = self._k(d, e, g, c, a[h + 10], 23, -1094730640)
-
-            c = self._k(c, d, e, g, a[h + 13], 4, 681279174); g = self._k(g, c, d, e, a[h + 0], 11, -358537222)
-            e = self._k(e, g, c, d, a[h + 3], 16, -722521979); d = self._k(d, e, g, c, a[h + 6], 23, 76029189)
-
-            c = self._k(c, d, e, g, a[h + 9], 4, -640364487); g = self._k(g, c, d, e, a[h + 12], 11, -421815835)
-            e = self._k(e, g, c, d, a[h + 15], 16, 530742520); d = self._k(d, e, g, c, a[h + 2], 23, -995338651)
-
-            c = self._l(c, d, e, g, a[h + 0], 6, -198630844); g = self._l(g, c, d, e, a[h + 7], 10, 1126891415)
-            e = self._l(e, g, c, d, a[h + 14], 15, -1416354905); d = self._l(d, e, g, c, a[h + 5], 21, -57434055)
-
-            c = self._l(c, d, e, g, a[h + 12], 6, 1700485571); g = self._l(g, c, d, e, a[h + 3], 10, -1894986606)
-            e = self._l(e, g, c, d, a[h + 10], 15, -1051523); d = self._l(d, e, g, c, a[h + 1], 21, -2054922799)
-
-            c = self._l(c, d, e, g, a[h + 8], 6, 1873313359); g = self._l(g, c, d, e, a[h + 15], 10, -30611744)
-            e = self._l(e, g, c, d, a[h + 6], 15, -1560198380); d = self._l(d, e, g, c, a[h + 13], 21, 1309151649)
-
-            c = self._l(c, d, e, g, a[h + 4], 6, -145523070); g = self._l(g, c, d, e, a[h + 11], 10, -1120210379)
-            e = self._l(e, g, c, d, a[h + 2], 15, 718787259); d = self._l(d, e, g, c, a[h + 9], 21, -343485551)
-
-            c = self._f(c, m)
-            d = self._f(d, n)
-            e = self._f(e, o)
-            g = self._f(g, p)
-        # print '_m:', a, b, c, d, e, g
-        return [c, d, e, g]
-
-    def _n(self, a):
-        return self._e(self._m(self._d(a), len(a) * 8))
-
-    def G(self, a):
-        # print 'G:', a
-        return self._b(self._n(self._c(a, self.E)))
-
-    def H(self):
-        import random
-        a = round(random.random() * 1e10)
-        # print 'H:', '%010d' % a
-        return '%010d' % a
-
+    G = 3600
+    H = "=0xAC10FD"
     def I(self, a):
-        b, c, d, e = (a[0:2], a[2:12], a[12:22], a[22:44])
-        f = int(c) + self.D
-        g = self.H()
-        # print 'I:', a, b, c, d, e, f, g
-        h = self.G(e + str(f) + g)
-        # print 'I:', a, b, c, d, e, f, g, h
-        # return b + c + d + str(f) + g + h
-        return "05" + b + c + d + str(f) + g + h
+        def _32lshift(data, bits):
+            # return (data & 0xFFFFFF) << bits
+            # d = -0x100000000 + data if (data & 0x80000000) else data
+            # return (d << bits) & 0xFFFFFFFF
+            r = 0xffffffff & (data << bits)
+            return -(~(r - 1) & 0xffffffff) if r > 0x7fffffff else r
+        def _zfrshift(data, bits):
+            # rshift
+            # sign = (data >> 31) & 1
+            # fills = ((sign << bits) - 1) << (32 - bits) if sign else 0
+            # return ((data & 0xffffffff) >> bits) | fills
+            return (data & 0xffffffff) >> bits
+        ####
+        # the bitwise methods guarantee the same expected behavior as in JS
+        # http://stackoverflow.com/questions/6535373/special-js-operators-in-python
+        ####
 
-    def J(self):
-        import time
-        # print 'J:', int(time.mktime(time.gmtime()))
-        return int(time.mktime(time.gmtime()))
-
+        def b(a, b):
+            c = a + b[1:9]
+            return c
+        def c(a):
+            b = [0] * ((len(a) >> 2) + 1)
+            for c in range(0, len(a) * 8, 8):
+                b[c >> 5] |= ord(a[(c/8) & 255]) << c % 32
+            return b
+        def d(a):
+            return ''.join([unichr(a[c >> 5] >> c % 32 & 255)
+                            for c in range(0, len(a) * 32, 8)])
+        def e(a, b):
+            c = (a & 65535) + (b & 65535)
+            d = (a >> 16) + (b >> 16) + (c >> 16)
+            return _32lshift(d, 16) | c & 65535
+        def f(a, b):
+            return _32lshift(a, b) | _zfrshift(a, 32 - b)
+        def g(a, b, c, d, g, h):
+            return e(f(e(e(b, a), e(d, h)), g), c)
+        def h(a, b, c, d, e, f, h):
+            return g(b & c | ~b & d, a, b, e, f, h)
+        def i(a, b, c, d, e, f, h):
+            return g(b & d | c & ~d, a, b, e, f, h)
+        def j(a, b, c, d, e, f, h):
+            return g(b ^ c ^ d, a, b, e, f, h)
+        def k(a, b, c, d, e, f, h):
+            return g(c ^ (b | ~d), a, b, e, f, h)
+        def l(a, b):
+            a = self.alist(a)
+            a[b >> 5] |= 128 << b % 32
+            a[(b + 64 >> 9 << 4) + 14] = b
+            c, d, f, g = (1732584193, -271733879, -1732584194, 271733878)
+            for l in range(0, len(a), 16):
+                m, n, o, p = (c, d, f, g)
+                c = h(c, d, f, g, a[l + 0], 7, -680876936); g = h(g, c, d, f, a[l + 1], 12, -389564586); f = h(f, g, c, d, a[l + 2], 17, 606105819); d = h(d, f, g, c, a[l + 3], 22, -1044525330)
+                c = h(c, d, f, g, a[l + 4], 7, -176418897); g = h(g, c, d, f, a[l + 5], 12, 1200080426); f = h(f, g, c, d, a[l + 6], 17, -1473231341); d = h(d, f, g, c, a[l + 7], 22, -45705983)
+                c = h(c, d, f, g, a[l + 8], 7, 1770035416); g = h(g, c, d, f, a[l + 9], 12, -1958414417); f = h(f, g, c, d, a[l + 10], 17, -42063); d = h(d, f, g, c, a[l + 11], 22, -1990404162)
+                c = h(c, d, f, g, a[l + 12], 7, 1804603682); g = h(g, c, d, f, a[l + 13], 12, -40341101); f = h(f, g, c, d, a[l + 14], 17, -1502002290); d = h(d, f, g, c, a[l + 15], 22, 1236535329)
+                c = i(c, d, f, g, a[l + 1], 5, -165796510); g = i(g, c, d, f, a[l + 6], 9, -1069501632); f = i(f, g, c, d, a[l + 11], 14, 643717713); d = i(d, f, g, c, a[l + 0], 20, -373897302)
+                c = i(c, d, f, g, a[l + 5], 5, -701558691); g = i(g, c, d, f, a[l + 10], 9, 38016083); f = i(f, g, c, d, a[l + 15], 14, -660478335); d = i(d, f, g, c, a[l + 4], 20, -405537848)
+                c = i(c, d, f, g, a[l + 9], 5, 568446438); g = i(g, c, d, f, a[l + 14], 9, -1019803690); f = i(f, g, c, d, a[l + 3], 14, -187363961); d = i(d, f, g, c, a[l + 8], 20, 1163531501)
+                c = i(c, d, f, g, a[l + 13], 5, -1444681467); g = i(g, c, d, f, a[l + 2], 9, -51403784); f = i(f, g, c, d, a[l + 7], 14, 1735328473); d = i(d, f, g, c, a[l + 12], 20, -1926607734)
+                c = j(c, d, f, g, a[l + 5], 4, -378558); g = j(g, c, d, f, a[l + 8], 11, -2022574463); f = j(f, g, c, d, a[l + 11], 16, 1839030562); d = j(d, f, g, c, a[l + 14], 23, -35309556)
+                c = j(c, d, f, g, a[l + 1], 4, -1530992060); g = j(g, c, d, f, a[l + 4], 11, 1272893353); f = j(f, g, c, d, a[l + 7], 16, -155497632); d = j(d, f, g, c, a[l + 10], 23, -1094730640)
+                c = j(c, d, f, g, a[l + 13], 4, 681279174); g = j(g, c, d, f, a[l + 0], 11, -358537222); f = j(f, g, c, d, a[l + 3], 16, -722521979); d = j(d, f, g, c, a[l + 6], 23, 76029189)
+                c = j(c, d, f, g, a[l + 9], 4, -640364487); g = j(g, c, d, f, a[l + 12], 11, -421815835); f = j(f, g, c, d, a[l + 15], 16, 530742520); d = j(d, f, g, c, a[l + 2], 23, -995338651)
+                c = k(c, d, f, g, a[l + 0], 6, -198630844); g = k(g, c, d, f, a[l + 7], 10, 1126891415); f = k(f, g, c, d, a[l + 14], 15, -1416354905); d = k(d, f, g, c, a[l + 5], 21, -57434055)
+                c = k(c, d, f, g, a[l + 12], 6, 1700485571); g = k(g, c, d, f, a[l + 3], 10, -1894986606); f = k(f, g, c, d, a[l + 10], 15, -1051523); d = k(d, f, g, c, a[l + 1], 21, -2054922799)
+                c = k(c, d, f, g, a[l + 8], 6, 1873313359); g = k(g, c, d, f, a[l + 15], 10, -30611744); f = k(f, g, c, d, a[l + 6], 15, -1560198380); d = k(d, f, g, c, a[l + 13], 21, 1309151649)
+                c = k(c, d, f, g, a[l + 4], 6, -145523070); g = k(g, c, d, f, a[l + 11], 10, -1120210379); f = k(f, g, c, d, a[l + 2], 15, 718787259); d = k(d, f, g, c, a[l + 9], 21, -343485551)
+                c = e(c, m); d = e(d, n); f = e(f, o); g = e(g, p)
+            return [c, d, f, g]
+        def m(a):
+            return d(l(c(a), len(a) * 8))
+        return m(b(a, self.H))
+    def J(self, a):
+        return self.rstr2b64(self.I(a))
     def K(self, a):
-        b, c, d, e, f = (a[0:2], a[2:1], a[3:10], a[13:10], a[24:22])
-        g = self.J() + self.D
-        h = self.H()
-        i = self.G(f + str(g) + h)
-        # print 'K:', a, b, c, d, e, f, g, h, i
-        return b + c + d + e + str(g) + h + i
-
-    def L(self, a):
-        b, c, d, e = ('04', '03', '', a[0:2])
-        # print 'L:', a, b, c, d, e
-        return (e == b and self.K(a) or
-                e == c and self.I(a) or d)
+        return self.rstr2hex(self.I(a))
+    def L(self):
+        return '%010d' % random.randint(1, 1e10)
+    def M(self, a):
+        b, c, d, e = (a[0:2], a[2:12], a[12:22], a[22:44])
+        f, g = (int(c) + self.G, self.L())
+        h = self.J(e + str(f) + g)
+        return ''.join(map(str, ['05', b, c, d, f, g, h]))
+    def N(self):
+        return int(time.time() / 1e3)
+    def O(self, a):
+        b, c, d, e, f, g, h = (
+                a[0:2], a[2:3], a[3:13], a[13:23], a[24:46],
+                self.N() + self.G, self.L())
+        i = self.J(f+g+h)
+        return b + c + d + e + g + h + i
+    def P(self, a):
+        b, c, d, e, f = ('04', '03', '02', '', a[0:2])
+        return (f == b and self.O(a) or
+                (f == c or f == d) and self.M(a) or e)

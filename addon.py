@@ -82,8 +82,13 @@ def play(vid):
     item = items[0]
     _id = item['info']['id']
     plugin.log.debug('setting resolved url for first item %s' % _id)
-    item['path'] = api.resolve_video_url(_id)
-    plugin.set_resolved_url(item, 'video/mp4')
+    # from pysrc import pydevd; pydevd.settrace()
+    try:
+        item['path'] = api.resolve_video_url(_id)
+        plugin.set_resolved_url(item, 'video/mp4')
+    except Exception as e:
+        # plugin.notify(plugin.get_string(31001))
+        plugin.notify(e.message)
 
 
 @plugin.route('/category/<slug>')

@@ -1,3 +1,7 @@
+0.5.5
+ PT: atualização código de hash
+ EN: hash code update
+
 0.5.4
  PT: Correção da lista de recursos de vídeo
  EN: Video resource list fix
