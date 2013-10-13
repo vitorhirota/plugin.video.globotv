@@ -32,8 +32,9 @@ RAIL_URL = SHOW_URL + '/_/trilhos/%(rail)s/page/%(page)s/'
 INFO_URL = 'http://api.globovideos.com/videos/%s/playlist'
 OFFER_URL = 'http://globotv.globo.com/_/oferta_tematica/%(slug)s.json'
 HASH_URL = ('http://security.video.globo.com/videos/%s/hash?'
-            + 'resource_id=%s&version=2.5.4&player=flash')
+            + 'resource_id=%s&version=2.5.8&player=flash')
 LOGIN_URL = 'https://login.globo.com/login/151?tam=widget'
+
 
 class GloboApi(object):
     def __init__(self, plugin, cache):
@@ -54,9 +55,10 @@ class GloboApi(object):
             self.cache.set(key, repr(data))
         return data
 
-    def _get_hashes(self, video_id, resource_ids, retry=False):
+    def _get_hashes(self, video_id, resource_ids, is_retry=False):
         args = (video_id, '|'.join(resource_ids))
         _cookies = {'GLBID': self.authenticate()}
+        # self.plugin.log.debug('requesting hash: %s' % (HASH_URL % args))
         req = requests.get(HASH_URL % args, cookies=_cookies)
         self.plugin.log.debug('resource ids: %s' % '|'.join(resource_ids))
         self.plugin.log.debug('return: %s' %
@@ -71,11 +73,15 @@ class GloboApi(object):
         except KeyError:
             args = (data['http_status_code'], data['message'])
             self.plugin.log.error('Request error: [%s] %s' % args)
-            self.plugin.set_setting('glbid', '')
-            self.plugin.log.debug('cleaning globo id')
-            if not retry:
-                self.plugin.log.debug('retrying authentication')
-                return self._get_hashes(video_id, resource_ids, True)
+            if args[0] == '403' and _cookies['GLBID']:
+                # if a 403 is returned (authentication needed) and there is an
+                # globo id, then this might be due to session expiration and a
+                # retry with a blank id shall be tried
+                self.plugin.set_setting('glbid', '')
+                self.plugin.log.debug('cleaning globo id')
+                if not is_retry:
+                    self.plugin.log.debug('retrying authentication')
+                    return self._get_hashes(video_id, resource_ids, True)
             raise Exception(data['message'])
 
     def _get_video_info(self, video_id):
