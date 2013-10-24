@@ -1,17 +1,9 @@
 # Globo.tv XBMC Plugin
 
-Veja os vídeos disponibilizados gratuitamente pelo site http://globotv.globo.com
+Este plugin foi movido para fazer parte do repositório de Addons brasileiros e não será mais atualizado neste endereço. Acompanhe-o no link abaixo.
 
-Inclui vídeos dos canais Globo, GNT, Multishow, Sportv, Globo News, Canal Brasil, entre outros.
+https://bitbucket.org/vitorhirota/repository.brazilian.xbmc-addons/
 
-Para alterações, verifique o [changelog](https://github.com/vitorhirota/plugin.video.globotv/blob/master/changelog.txt).
+---
 
-Para downloads de arquivos .zip de instalação, veja a página de [tags](https://github.com/vitorhirota/plugin.video.globotv/tags).
-
---- 
-
-Watch Globo TV videos freely available online.
-
-Check the [tags](https://github.com/vitorhirota/plugin.video.globotv/tags) page for pre-packaged .zip install files.
-
-[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/8f485bc414511ca598e31767d5746cdf "githalytics.com")](http://githalytics.com/vitorhirota/plugin.video.globotv)
+This plugin has been moved to be a part of a Brazilian Addons Repository. Follow it on the link above.
