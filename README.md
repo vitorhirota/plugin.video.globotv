@@ -7,3 +7,7 @@ https://bitbucket.org/vitorhirota/repository.brazilian.xbmc-addons/
 ---
 
 This plugin has been moved to be a part of a Brazilian Addons Repository. Follow it on the link above.
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/vitorhirota/plugin.video.globotv/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
